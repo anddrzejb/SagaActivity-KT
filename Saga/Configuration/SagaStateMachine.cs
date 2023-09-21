@@ -25,6 +25,10 @@ public class SagaStateMachine: MassTransitStateMachine<SagaStateData>
                 schedule.Received = r => r.CorrelateById(context => context.Message.CorrelationId);
             });
         
+        this.Event(() => this.FaultStep1, x => x
+            .CorrelateById(m => m.Message.Message.CorrelationId) 
+            .SelectId(m => m.Message.Message.CorrelationId));
+        
         this.Initially(
             this.When(InitSaga)             
                 .Activity(x => x.OfType<InitializationActivity>())
@@ -65,7 +69,16 @@ public class SagaStateMachine: MassTransitStateMachine<SagaStateData>
                     then => then.PublishAsync(ctx => ctx.Init<SagaStep2>(
                         new SagaStep2() { CorrelationId = ctx.Data.CorrelationId })),
                     @else => @else.PublishAsync(ctx => ctx.Init<AlternativeStep>(
-                            new AlternativeStep() { CorrelationId = ctx.Data.CorrelationId })))
+                            new AlternativeStep() { CorrelationId = ctx.Data.CorrelationId }))),
+            this.When(this.FaultStep1)             
+                .Then(ctx =>
+                {
+                    ctx.Instance.IsTerminalError = true;
+
+                    logger.LogInformation("{C}{Time} Saga: Faulted due to event {EventName} triggered by {EventType}",
+                        Red, DateTime.Now, ctx.Event.Name, ctx.Data.GetType().Name);
+                })
+                .Finalize()
         );
         
         
@@ -127,6 +140,8 @@ public class SagaStateMachine: MassTransitStateMachine<SagaStateData>
     
     public Event<SagaStep1> Step1 { get; private set; }
     
+    public Event<Fault<SagaStep1>> FaultStep1 { get; private set; }
+    
     public Event<SagaStep2> Step2 { get; private set; }
     
     public Event<AlternativeStep> AlternativeStep { get; private set; }    
@@ -134,4 +149,5 @@ public class SagaStateMachine: MassTransitStateMachine<SagaStateData>
     public Event<FinishingStepEvent> FinishingStep { get; private set; }
     
     public Schedule<SagaStateData, TimeoutEvent> TimeoutSchedule { get; private set; }
+    
 }

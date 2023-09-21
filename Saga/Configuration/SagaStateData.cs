@@ -14,4 +14,6 @@ public class SagaStateData : SagaStateMachineInstance, ISagaVersion
     public bool InitializeWithAlternativeStep { get; set; }
     
     public Guid? TimeoutScheduleTokenId { get; set; }
+
+    public bool IsTerminalError { get; set; }
 }
