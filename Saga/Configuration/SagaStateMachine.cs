@@ -19,6 +19,8 @@ public class SagaStateMachine: MassTransitStateMachine<SagaStateData>
                 .TransitionTo(this.Initialized)
                 .Then(ctx =>
                 {
+                    ctx.Instance.InitializeWithAlternativeStep = ctx.Data.InitializeWithAlternativeStep;
+                    
                     logger.LogInformation("{C}{Time} Saga: Transitioned to {CurrentState} from Start on event {EventName} triggered by {EventType}",
                         Purple, DateTime.Now, ctx.Instance.CurrentState, ctx.Event.Name, ctx.Data.GetType().Name);
                 })
@@ -33,8 +35,11 @@ public class SagaStateMachine: MassTransitStateMachine<SagaStateData>
                     logger.LogInformation("{C}{Time} Saga: Transitioned to {CurrentState} from Start on event {EventName} triggered by {EventType}",
                         Purple, DateTime.Now, ctx.Instance.CurrentState, ctx.Event.Name, ctx.Data.GetType().Name);
                 })
-                .PublishAsync(ctx => ctx.Init<SagaStep2>(
-                    new SagaStep2() { CorrelationId = ctx.Data.CorrelationId }))            
+                .IfElse(condition => !condition.Instance.InitializeWithAlternativeStep,
+                    then => then.PublishAsync(ctx => ctx.Init<SagaStep2>(
+                        new SagaStep2() { CorrelationId = ctx.Data.CorrelationId })),
+                    @else => @else.PublishAsync(ctx => ctx.Init<AlternativeStep>(
+                            new AlternativeStep() { CorrelationId = ctx.Data.CorrelationId })))
         );
         
         
@@ -48,7 +53,16 @@ public class SagaStateMachine: MassTransitStateMachine<SagaStateData>
                         Purple, DateTime.Now, ctx.Instance.CurrentState, ctx.Event.Name, ctx.Data.GetType().Name);
                 })
                 .PublishAsync(ctx => ctx.Init<FinishingStepEvent>(
-                    new FinishingStepEvent() { CorrelationId = ctx.Data.CorrelationId }))            
+                    new FinishingStepEvent() { CorrelationId = ctx.Data.CorrelationId })),
+            this.When(this.AlternativeStep)
+                .TransitionTo(this.Step2Completed)
+                .Then(ctx =>
+                {
+                    logger.LogInformation("{C}{Time} Saga: Transitioned to {CurrentState} from Start on event {EventName} triggered by {EventType}",
+                        Purple, DateTime.Now, ctx.Instance.CurrentState, ctx.Event.Name, ctx.Data.GetType().Name);
+                })
+                .PublishAsync(ctx => ctx.Init<FinishingStepEvent>(
+                    new FinishingStepEvent() { CorrelationId = ctx.Data.CorrelationId }))
         );
 
         this.During(this.Step2Completed,
@@ -73,6 +87,8 @@ public class SagaStateMachine: MassTransitStateMachine<SagaStateData>
     public Event<SagaStep1> Step1 { get; private set; }
     
     public Event<SagaStep2> Step2 { get; private set; }
+    
+    public Event<AlternativeStep> AlternativeStep { get; private set; }    
     
     public Event<FinishingStepEvent> FinishingStep { get; private set; }
 }

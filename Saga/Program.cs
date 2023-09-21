@@ -52,11 +52,12 @@ builder.Services.AddHostedService<MassTransitHostedService>();
 var app = builder.Build();
 app.UseSwagger();
 
-app.MapGet("/saga", async (IPublishEndpoint publishEndpoint) =>
+app.MapGet("/saga/{initializeWithAlternativeStep:bool}", async (bool initializeWithAlternativeStep, IPublishEndpoint publishEndpoint) =>
 {
     await publishEndpoint.Publish(new InitSagaEvent()
     {
-        CorrelationId = Guid.NewGuid()
+        CorrelationId = Guid.NewGuid(),
+        InitializeWithAlternativeStep = initializeWithAlternativeStep
     });
     return Results.Ok();
 });

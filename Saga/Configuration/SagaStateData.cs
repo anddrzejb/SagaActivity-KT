@@ -10,4 +10,6 @@ public class SagaStateData : SagaStateMachineInstance, ISagaVersion
     public string CurrentState { get; set; } = default!;
     
     public int Version { get; set; }
+
+    public bool InitializeWithAlternativeStep { get; set; }
 }
