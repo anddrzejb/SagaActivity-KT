@@ -22,8 +22,6 @@ public class SagaStateMachine: MassTransitStateMachine<SagaStateData>
                     logger.LogInformation("{C}{Time} Saga: Transitioned to {CurrentState} from Start on event {EventName} triggered by {EventType}",
                         Purple, DateTime.Now, ctx.Instance.CurrentState, ctx.Event.Name, ctx.Data.GetType().Name);
                 })
-                .PublishAsync(ctx => ctx.Init<SagaStep1>(
-                    new SagaStep1() { CorrelationId = ctx.Data.CorrelationId }))
         );
         
         this.During(this.Initialized,

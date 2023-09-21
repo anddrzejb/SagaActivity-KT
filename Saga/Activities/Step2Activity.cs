@@ -14,10 +14,7 @@ public class Step2Activity : Activity<SagaStateData, SagaStep2>
         _logger = logger;
     }
 
-    public void Probe(ProbeContext context)
-    {
-        context.CreateScope("saga-activity-process-step2");
-    }
+    public void Probe(ProbeContext context) => context.CreateScope("saga-activity-process-step2");
 
     public void Accept(StateMachineVisitor visitor) => visitor.Visit(this);
 

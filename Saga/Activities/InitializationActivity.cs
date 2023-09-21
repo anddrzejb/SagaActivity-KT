@@ -14,10 +14,7 @@ public class InitializationActivity: Activity<SagaStateData, InitSagaEvent>
         _logger = logger;
     }
 
-    public void Probe(ProbeContext context)
-    {
-        context.CreateScope("saga-activity-process-initialization");
-    }
+    public void Probe(ProbeContext context) => context.CreateScope("saga-activity-process-initialization");
 
     public void Accept(StateMachineVisitor visitor) => visitor.Visit(this);
 
@@ -25,6 +22,7 @@ public class InitializationActivity: Activity<SagaStateData, InitSagaEvent>
     {
         _logger.LogInformation("{C}{Time} Saga activity: {Activity} initiated by event {EventName} triggered by {EventType} correlated by {Correlation}",
             SagaStateMachine.Yellow, DateTime.Now, GetType().Name, context.Event.Name, context.Data.GetType().Name, context.Data.CorrelationId);
+        await context.Publish(new SagaStep1() { CorrelationId = context.Data.CorrelationId });
         await next.Execute(context);
     }
 
