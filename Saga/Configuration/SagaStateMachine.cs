@@ -92,6 +92,12 @@ public class SagaStateMachine: MassTransitStateMachine<SagaStateData>
 
         this.During(this.Step2Completed,
             this.When(FinishingStep)
+                .Unschedule(this.TimeoutSchedule)
+                .Then(ctx =>
+                {
+                    logger.LogInformation("{C}{Time} Saga: Schedule {ScheduleName} has been unscheduled",
+                        Blue, DateTime.Now, nameof(this.TimeoutSchedule));
+                })                
                 .Finalize()
                 .Then(ctx =>
                 {
