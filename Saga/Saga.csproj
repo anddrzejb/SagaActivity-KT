@@ -10,10 +10,13 @@
         <PackageReference Include="Hangfire.AspNetCore" Version="1.7.34" />
         <PackageReference Include="Hangfire.Core" Version="1.7.34" />        
         <PackageReference Include="Hangfire.MemoryStorage" Version="1.7.0" />
+        <PackageReference Include="Hangfire.SqlServer" Version="1.7.32" />
         <PackageReference Include="MassTransit" Version="7.3.1" />
         <PackageReference Include="MassTransit.Extensions.DependencyInjection" Version="7.3.1" />
         <PackageReference Include="MassTransit.MongoDb" Version="7.3.1" />
         <PackageReference Include="MassTransit.RabbitMQ" Version="7.3.1" />
+        <PackageReference Include="MassTransit.Hangfire" Version="7.3.1" />
+        <PackageReference Include="MongoDB.Driver" Version="2.18.0" />
         <PackageReference Include="Serilog" Version="2.12.0" />
         <PackageReference Include="Serilog.AspNetCore" Version="6.1.0" />
         <PackageReference Include="Serilog.Extensions.Hosting" Version="5.0.1" />

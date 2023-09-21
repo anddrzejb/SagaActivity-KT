@@ -20,7 +20,7 @@ public class SagaStateMachine: MassTransitStateMachine<SagaStateData>
             instance => instance.TimeoutScheduleTokenId,
             schedule =>
             {
-                schedule.Delay = TimeSpan.FromSeconds(15);
+                schedule.Delay = TimeSpan.FromSeconds(10);
                 schedule.Received = r => r.CorrelateById(context => context.Message.CorrelationId);
             });
         
@@ -35,10 +35,15 @@ public class SagaStateMachine: MassTransitStateMachine<SagaStateData>
                     logger.LogInformation("{C}{Time} Saga: Transitioned to {CurrentState} from Start on event {EventName} triggered by {EventType}",
                         Purple, DateTime.Now, ctx.Instance.CurrentState, ctx.Event.Name, ctx.Data.GetType().Name);
                 })
-                .Schedule(this.TimeoutSchedule, ctx => ctx.Init<TimeoutEvent>(new TimeoutEvent()
+                .Schedule(this.TimeoutSchedule, ctx =>
                 {
-                    CorrelationId = ctx.Data.CorrelationId
-                }))
+                    logger.LogInformation("{C}{Time} Saga: Schedule {ScheduleName} set to execute in {Delay}",
+                        Blue, DateTime.Now, nameof(this.TimeoutSchedule), 15);
+                    return ctx.Init<TimeoutEvent>(new TimeoutEvent()
+                    {
+                        CorrelationId = ctx.Data.CorrelationId
+                    });
+                })
                 .PublishAsync(ctx => ctx.Init<SideEffectRequest>(new SideEffectRequest()
                 {
                     CorrelationId = ctx.Instance.CorrelationId,

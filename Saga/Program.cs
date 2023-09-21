@@ -1,12 +1,16 @@
 using Hangfire;
-using Hangfire.MemoryStorage;
 using MassTransit;
+using MongoDB.Bson;
+using MongoDB.Bson.Serialization.Conventions;
+using MongoDB.Driver;
 using Saga;
 using Saga.Configuration;
 using Saga.Consumers;
 using Saga.Events;
 using Serilog;
 using Serilog.Events;
+
+SetMongoConventions();
 
 Log.Logger = new LoggerConfiguration()
     .MinimumLevel.Debug()
@@ -29,7 +33,7 @@ builder.Services.AddHangfire(h =>
 {
     h.UseSimpleAssemblyNameTypeSerializer(); //this is probably a default 
     h.UseRecommendedSerializerSettings();
-    h.UseMemoryStorage();
+    h.UseSqlServerStorage("Server=.;Database=HangfireApplication;Trusted_Connection=True;");
 });
 
 builder.Services.AddMassTransit(cfg =>
@@ -49,9 +53,9 @@ builder.Services.AddMassTransit(cfg =>
             h.Password("guest");
             h.Username("guest");
         });
-    
-        configurator.UseDelayedMessageScheduler();
         
+        configurator.UseHangfireScheduler();
+
         configurator.ReceiveEndpoint("saga-custom-queue", e =>
         {
             e.ConfigureSaga<SagaStateData>(context);
@@ -85,6 +89,28 @@ app.MapGet("/saga/{initializeWithAlternativeStep:bool}/{forceSchedule:bool}",
 });
 
 app.UseSwaggerUI();
+app.UseHangfireDashboard();
+
 app.Run();
 
 Log.CloseAndFlush();
+
+//Setting these mongo conventions will help identifying hangfire schedules in db 
+void SetMongoConventions()
+{
+    ConventionRegistry.Register("camelCaseConvention",
+        new ConventionPack
+        {
+            new CamelCaseElementNameConvention(),
+        },
+        t => true);
+    ConventionRegistry.Register("ignoreExtraElementsConvention",
+        new ConventionPack
+        {
+            new IgnoreExtraElementsConvention(true),
+        },
+        t => true);
+#pragma warning disable CS0618 // It might be obsolete but without it driver doesnt work well while querying. The solution from documentation doesnt work properly
+    MongoDefaults.GuidRepresentation = GuidRepresentation.Standard;
+#pragma warning restore CS0618 // It might be obsolete but without it driver doesnt work well while querying. The solution from documentation doesnt work properly
+}
