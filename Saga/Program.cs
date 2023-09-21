@@ -24,11 +24,26 @@ builder.Services.AddSwaggerGen();
 
 builder.Services.AddMassTransit(cfg =>
 {
-    cfg.AddSagaStateMachine<SagaStateMachine, SagaStateData>().InMemoryRepository();
+    cfg.AddSagaStateMachine<SagaStateMachine, SagaStateData>()
+        .MongoDbRepository(r =>
+        {
+            r.Connection = "mongodb://root:admin@localhost:27017";
+            r.DatabaseName = "saga";
+        });
     
-    cfg.UsingInMemory((context, opt) =>
-    {
-        opt.ConfigureEndpoints(context);
+    cfg.UsingRabbitMq((context, configurator) => {
+        configurator.Host(new Uri("rabbitmq://localhost:5672"), h =>
+        {
+            h.Password("guest");
+            h.Username("guest");
+        });
+    
+        configurator.ReceiveEndpoint("saga-custom-queue", e =>
+        {
+            e.ConfigureSaga<SagaStateData>(context);
+            e.SetQuorumQueue();
+            e.UseInMemoryOutbox();
+        });
     });
 });
 
