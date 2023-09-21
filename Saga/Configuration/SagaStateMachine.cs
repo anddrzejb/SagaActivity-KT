@@ -1,18 +1,21 @@
 ﻿using Automatonymous;
 using MassTransit;
+using Saga.Activities;
 using Saga.Events;
 
 namespace Saga.Configuration;
 
 public class SagaStateMachine: MassTransitStateMachine<SagaStateData>
 {
-    const string Purple = "\x1b[35m";
+    public const string Purple = "\x1b[35m";
+    public const string Yellow = "\x1b[33m";
     public SagaStateMachine(ILogger<SagaStateMachine> logger)
     {
         this.InstanceState(x => x.CurrentState);
         
         this.Initially(
             this.When(InitSaga)
+                .Activity(x => x.OfType<InitializationActivity>())
                 .TransitionTo(this.Initialized)
                 .Then(ctx =>
                 {
@@ -25,6 +28,7 @@ public class SagaStateMachine: MassTransitStateMachine<SagaStateData>
         
         this.During(this.Initialized,
             this.When(this.Step1)
+                .Activity(x => x.OfType<Step1Activity>())
                 .TransitionTo(this.Step1Completed)
                 .Then(ctx =>
                 {
@@ -38,6 +42,7 @@ public class SagaStateMachine: MassTransitStateMachine<SagaStateData>
         
         this.During(this.Step1Completed,
             this.When(this.Step2)
+                .Activity(x => x.OfType<Step2Activity>())
                 .TransitionTo(this.Step2Completed)
                 .Then(ctx =>
                 {
