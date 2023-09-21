@@ -13,9 +13,15 @@ public class RetryLoggerFilter<T> : IFilter<ConsumeContext<T>> where T : class
     }
     public async Task Send(ConsumeContext<T> context, IPipe<ConsumeContext<T>> next)
     {
+        if (context.GetRedeliveryCount() > 0)
+        {
+            _logger.LogInformation("{C}{Time} REDELIVERING message: {MessageId} of type {ContextMessageType} for the {Retries} time",
+                SagaStateMachine.Red, DateTime.Now, context.MessageId, context.Message.GetType().Name, context.GetRedeliveryCount());            
+        }        
+        
         if (context.GetRetryAttempt() > 0)
         {
-            _logger.LogInformation("{C}{Time} Retrying message: {MessageId} of type {ContextMessageType} for the {Retries} time",
+            _logger.LogInformation("{C}{Time} RETRYING message: {MessageId} of type {ContextMessageType} for the {Retries} time",
                 SagaStateMachine.Red, DateTime.Now, context.MessageId, context.Message.GetType().Name, context.GetRetryAttempt());
         }
 

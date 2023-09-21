@@ -1,3 +1,4 @@
+using GreenPipes;
 using Hangfire;
 using MassTransit;
 using MongoDB.Bson;
@@ -63,6 +64,12 @@ builder.Services.AddMassTransit(cfg =>
             e.UseInMemoryOutbox();
             
             e.UseConsumeFilter(typeof(RetryLoggerFilter<>), context);
+            
+            e.UseScheduledRedelivery(r =>
+            {
+                r.Exponential(3, TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(8), TimeSpan.FromSeconds(2));
+            });
+            
             e.UseMessageRetry(r =>
             {
                 r.SetRetryPolicy(x => x.Incremental(3, TimeSpan.FromMilliseconds(500), TimeSpan.FromMilliseconds(250)));
