@@ -2,6 +2,7 @@
 using MassTransit;
 using Saga.Activities;
 using Saga.Events;
+using Saga.Requests;
 
 namespace Saga.Configuration;
 
@@ -9,6 +10,7 @@ public class SagaStateMachine: MassTransitStateMachine<SagaStateData>
 {
     public const string Purple = "\x1b[35m";
     public const string Yellow = "\x1b[33m";
+    public const string Red = "\x1b[31m";
     public SagaStateMachine(ILogger<SagaStateMachine> logger)
     {
         this.InstanceState(x => x.CurrentState);
@@ -23,7 +25,11 @@ public class SagaStateMachine: MassTransitStateMachine<SagaStateData>
                     
                     logger.LogInformation("{C}{Time} Saga: Transitioned to {CurrentState} from Start on event {EventName} triggered by {EventType}",
                         Purple, DateTime.Now, ctx.Instance.CurrentState, ctx.Event.Name, ctx.Data.GetType().Name);
-                })
+                }).PublishAsync(ctx => ctx.Init<SideEffectRequest>(new SideEffectRequest()
+                {
+                    CorrelationId = ctx.Instance.CorrelationId,
+                    CreatedAt = DateTime.Now
+                }))
         );
         
         this.During(this.Initialized,

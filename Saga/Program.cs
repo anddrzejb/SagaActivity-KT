@@ -1,6 +1,7 @@
 using MassTransit;
 using Saga;
 using Saga.Configuration;
+using Saga.Consumers;
 using Saga.Events;
 using Serilog;
 using Serilog.Events;
@@ -24,6 +25,8 @@ builder.Services.AddSwaggerGen();
 
 builder.Services.AddMassTransit(cfg =>
 {
+    cfg.AddConsumer<SideEffectConsumer>();
+    
     cfg.AddSagaStateMachine<SagaStateMachine, SagaStateData>()
         .MongoDbRepository(r =>
         {
@@ -43,6 +46,12 @@ builder.Services.AddMassTransit(cfg =>
             e.ConfigureSaga<SagaStateData>(context);
             e.SetQuorumQueue();
             e.UseInMemoryOutbox();
+        });
+        
+        configurator.ReceiveEndpoint("saga-side-effect", e =>
+        {
+            e.Consumer<SideEffectConsumer>(context);
+            e.SetQuorumQueue();
         });
     });
 });
