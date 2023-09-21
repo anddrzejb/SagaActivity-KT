@@ -1,3 +1,4 @@
+using GreenPipes.Policies;
 using Hangfire;
 using MassTransit;
 using MongoDB.Bson;
@@ -16,7 +17,7 @@ Log.Logger = new LoggerConfiguration()
     .MinimumLevel.Debug()
     .MinimumLevel.Override("Microsoft", LogEventLevel.Information)
     .Enrich.FromLogContext()
-    .WriteTo.Console()
+    .WriteTo.Console(outputTemplate: "[{Timestamp:yyyy-MM-dd HH:mm:ss.fff} {Level:u3}] {Message:lj}{NewLine}{Exception}")
     .CreateLogger();
 
 var builder = WebApplication.CreateBuilder(args);
@@ -61,6 +62,12 @@ builder.Services.AddMassTransit(cfg =>
             e.ConfigureSaga<SagaStateData>(context);
             e.SetQuorumQueue();
             e.UseInMemoryOutbox();
+            
+            e.UseConsumeFilter(typeof(RetryLoggerFilter<>), context);
+            e.UseMessageRetry(r =>
+            {
+                r.SetRetryPolicy(x => x.Incremental(3, TimeSpan.FromMilliseconds(500), TimeSpan.FromMilliseconds(250)));
+            });
         });
         
         configurator.ReceiveEndpoint("saga-side-effect", e =>
@@ -76,9 +83,11 @@ builder.Services.AddHostedService<MassTransitHostedService>();
 var app = builder.Build();
 app.UseSwagger();
 
-app.MapGet("/saga/{initializeWithAlternativeStep:bool}/{forceSchedule:bool}",
-    async (bool initializeWithAlternativeStep, bool forceSchedule, IPublishEndpoint publishEndpoint) =>
-{
+app.MapGet("/saga/{initializeWithAlternativeStep:bool}/{forceSchedule:bool}/{retryCount:int}",
+    async (IPublishEndpoint publishEndpoint, bool initializeWithAlternativeStep = false, bool forceSchedule = false, int retryCount = 0) =>
+    {
+
+    SagaStateMachine.RetryCount = retryCount;
     await publishEndpoint.Publish(new InitSagaEvent()
     {
         CorrelationId = Guid.NewGuid(),

@@ -22,6 +22,14 @@ public class Step1Activity : Activity<SagaStateData, SagaStep1>
     {
         _logger.LogInformation("{C}{Time} Saga activity: {Activity} initiated by event {EventName} triggered by {EventType} correlated by {Correlation}",
             SagaStateMachine.Yellow, DateTime.Now, GetType().Name, context.Event.Name, context.Data.GetType().Name, context.Data.CorrelationId);
+
+        if (SagaStateMachine.RetryCount > 0)
+        {
+            _logger.LogInformation("{C}{Time} Saga activity: {Activity} is retrying for the {RetryCount} time",
+                SagaStateMachine.Yellow, DateTime.Now, GetType().Name, SagaStateMachine.RetryCount--);
+            throw new Exception("Retry manual exception");
+        }
+        
         await next.Execute(context);
     }
 

@@ -12,6 +12,7 @@ public class SagaStateMachine: MassTransitStateMachine<SagaStateData>
     public const string Yellow = "\x1b[33m";
     public const string Red = "\x1b[31m";
     public const string Blue = "\x1b[34m";
+    public static int RetryCount = 0;
     public SagaStateMachine(ILogger<SagaStateMachine> logger)
     {
         this.InstanceState(x => x.CurrentState);
