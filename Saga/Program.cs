@@ -1,3 +1,5 @@
+using Hangfire;
+using Hangfire.MemoryStorage;
 using MassTransit;
 using Saga;
 using Saga.Configuration;
@@ -23,6 +25,13 @@ builder.Host.ConfigureLogging((hostingContext, logging) =>
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
+builder.Services.AddHangfire(h =>
+{
+    h.UseSimpleAssemblyNameTypeSerializer(); //this is probably a default 
+    h.UseRecommendedSerializerSettings();
+    h.UseMemoryStorage();
+});
+
 builder.Services.AddMassTransit(cfg =>
 {
     cfg.AddConsumer<SideEffectConsumer>();
@@ -41,6 +50,8 @@ builder.Services.AddMassTransit(cfg =>
             h.Username("guest");
         });
     
+        configurator.UseDelayedMessageScheduler();
+        
         configurator.ReceiveEndpoint("saga-custom-queue", e =>
         {
             e.ConfigureSaga<SagaStateData>(context);
@@ -61,12 +72,14 @@ builder.Services.AddHostedService<MassTransitHostedService>();
 var app = builder.Build();
 app.UseSwagger();
 
-app.MapGet("/saga/{initializeWithAlternativeStep:bool}", async (bool initializeWithAlternativeStep, IPublishEndpoint publishEndpoint) =>
+app.MapGet("/saga/{initializeWithAlternativeStep:bool}/{forceSchedule:bool}",
+    async (bool initializeWithAlternativeStep, bool forceSchedule, IPublishEndpoint publishEndpoint) =>
 {
     await publishEndpoint.Publish(new InitSagaEvent()
     {
         CorrelationId = Guid.NewGuid(),
-        InitializeWithAlternativeStep = initializeWithAlternativeStep
+        InitializeWithAlternativeStep = initializeWithAlternativeStep,
+        ForceSchedule = forceSchedule
     });
     return Results.Ok();
 });

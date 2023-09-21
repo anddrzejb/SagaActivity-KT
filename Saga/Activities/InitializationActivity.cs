@@ -22,7 +22,11 @@ public class InitializationActivity: Activity<SagaStateData, InitSagaEvent>
     {
         _logger.LogInformation("{C}{Time} Saga activity: {Activity} initiated by event {EventName} triggered by {EventType} correlated by {Correlation}",
             SagaStateMachine.Yellow, DateTime.Now, GetType().Name, context.Event.Name, context.Data.GetType().Name, context.Data.CorrelationId);
-        await context.Publish(new SagaStep1() { CorrelationId = context.Data.CorrelationId });
+        
+        if (!context.Data.ForceSchedule)
+        {
+            await context.Publish(new SagaStep1() { CorrelationId = context.Data.CorrelationId });
+        }
         await next.Execute(context);
     }
 

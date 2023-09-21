@@ -11,21 +11,35 @@ public class SagaStateMachine: MassTransitStateMachine<SagaStateData>
     public const string Purple = "\x1b[35m";
     public const string Yellow = "\x1b[33m";
     public const string Red = "\x1b[31m";
+    public const string Blue = "\x1b[34m";
     public SagaStateMachine(ILogger<SagaStateMachine> logger)
     {
         this.InstanceState(x => x.CurrentState);
         
+        this.Schedule(() => this.TimeoutSchedule,
+            instance => instance.TimeoutScheduleTokenId,
+            schedule =>
+            {
+                schedule.Delay = TimeSpan.FromSeconds(15);
+                schedule.Received = r => r.CorrelateById(context => context.Message.CorrelationId);
+            });
+        
         this.Initially(
-            this.When(InitSaga)
+            this.When(InitSaga)             
                 .Activity(x => x.OfType<InitializationActivity>())
-                .TransitionTo(this.Initialized)
+                .TransitionTo(this.Initialized)             
                 .Then(ctx =>
                 {
                     ctx.Instance.InitializeWithAlternativeStep = ctx.Data.InitializeWithAlternativeStep;
                     
                     logger.LogInformation("{C}{Time} Saga: Transitioned to {CurrentState} from Start on event {EventName} triggered by {EventType}",
                         Purple, DateTime.Now, ctx.Instance.CurrentState, ctx.Event.Name, ctx.Data.GetType().Name);
-                }).PublishAsync(ctx => ctx.Init<SideEffectRequest>(new SideEffectRequest()
+                })
+                .Schedule(this.TimeoutSchedule, ctx => ctx.Init<TimeoutEvent>(new TimeoutEvent()
+                {
+                    CorrelationId = ctx.Data.CorrelationId
+                }))
+                .PublishAsync(ctx => ctx.Init<SideEffectRequest>(new SideEffectRequest()
                 {
                     CorrelationId = ctx.Instance.CorrelationId,
                     CreatedAt = DateTime.Now
@@ -38,7 +52,7 @@ public class SagaStateMachine: MassTransitStateMachine<SagaStateData>
                 .TransitionTo(this.Step1Completed)
                 .Then(ctx =>
                 {
-                    logger.LogInformation("{C}{Time} Saga: Transitioned to {CurrentState} from Start on event {EventName} triggered by {EventType}",
+                    logger.LogInformation("{C}{Time} Saga: Transitioned to {CurrentState} on event {EventName} triggered by {EventType}",
                         Purple, DateTime.Now, ctx.Instance.CurrentState, ctx.Event.Name, ctx.Data.GetType().Name);
                 })
                 .IfElse(condition => !condition.Instance.InitializeWithAlternativeStep,
@@ -55,7 +69,7 @@ public class SagaStateMachine: MassTransitStateMachine<SagaStateData>
                 .TransitionTo(this.Step2Completed)
                 .Then(ctx =>
                 {
-                    logger.LogInformation("{C}{Time} Saga: Transitioned to {CurrentState} from Start on event {EventName} triggered by {EventType}",
+                    logger.LogInformation("{C}{Time} Saga: Transitioned to {CurrentState} on event {EventName} triggered by {EventType}",
                         Purple, DateTime.Now, ctx.Instance.CurrentState, ctx.Event.Name, ctx.Data.GetType().Name);
                 })
                 .PublishAsync(ctx => ctx.Init<FinishingStepEvent>(
@@ -64,7 +78,7 @@ public class SagaStateMachine: MassTransitStateMachine<SagaStateData>
                 .TransitionTo(this.Step2Completed)
                 .Then(ctx =>
                 {
-                    logger.LogInformation("{C}{Time} Saga: Transitioned to {CurrentState} from Start on event {EventName} triggered by {EventType}",
+                    logger.LogInformation("{C}{Time} Saga: Transitioned to {CurrentState} on event {EventName} triggered by {EventType}",
                         Purple, DateTime.Now, ctx.Instance.CurrentState, ctx.Event.Name, ctx.Data.GetType().Name);
                 })
                 .PublishAsync(ctx => ctx.Init<FinishingStepEvent>(
@@ -76,9 +90,18 @@ public class SagaStateMachine: MassTransitStateMachine<SagaStateData>
                 .Finalize()
                 .Then(ctx =>
                 {
-                    logger.LogInformation("{C}{Time} Saga: Transitioned to {CurrentState} from Start on event {EventName} triggered by {EventType}",
+                    logger.LogInformation("{C}{Time} Saga: Transitioned to {CurrentState} on event {EventName} triggered by {EventType}",
                         Purple, DateTime.Now, ctx.Instance.CurrentState, ctx.Event.Name, ctx.Data.GetType().Name);
                 })
+        );
+        
+        this.DuringAny(this.When(TimeoutSchedule!.Received)
+            .Finalize()
+            .Then(ctx =>
+            {
+                logger.LogInformation("{C}{Time} Saga: Transitioned to {CurrentState} on scheduled event {EventName} triggered by {EventType}",
+                    Blue, DateTime.Now, ctx.Instance.CurrentState, ctx.Event.Name, ctx.Data.GetType().Name);
+            })
         );
     }    
     
@@ -97,4 +120,6 @@ public class SagaStateMachine: MassTransitStateMachine<SagaStateData>
     public Event<AlternativeStep> AlternativeStep { get; private set; }    
     
     public Event<FinishingStepEvent> FinishingStep { get; private set; }
+    
+    public Schedule<SagaStateData, TimeoutEvent> TimeoutSchedule { get; private set; }
 }
